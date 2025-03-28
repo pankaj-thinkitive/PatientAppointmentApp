@@ -45,18 +45,70 @@ public class AppointmentService {
         );
     }
 
-    public List<AppointmentResponseDTO> getAllAppointments() {
-        return appointmentRepository.findAll().stream()
-                .map(appointment -> new AppointmentResponseDTO(
-                        appointment.getId(),
-                        new PatientResponseDTO(appointment.getPatient().getId(), appointment.getPatient().getName(),
-                                appointment.getPatient().getAge(),
-                                new ProviderResponseDTO(appointment.getProvider().getId(), appointment.getProvider().getName(),
-                                        appointment.getProvider().getSpecialization())),
-                        new ProviderResponseDTO(appointment.getProvider().getId(), appointment.getProvider().getName(),
-                                appointment.getProvider().getSpecialization()),
-                        appointment.getAppointmentDate()
-                )).toList();
+    public Page<AppointmentResponseDTO> getAppointments(
+            String patientName, String providerName, LocalDate appointmentDate,
+            int page, int size, String sortBy, String sortDirection) {
+
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Appointment> query = cb.createQuery(Appointment.class);
+        Root<Appointment> root = query.from(Appointment.class);
+        root.fetch("patient", JoinType.LEFT);
+        root.fetch("provider", JoinType.LEFT);
+
+        query.distinct(true);
+
+        List<Predicate> predicates = new ArrayList<>();
+
+        if (patientName != null && !patientName.isEmpty()) {
+            predicates.add(cb.like(cb.lower(root.get("patient").get("name")), "%" + patientName.toLowerCase() + "%"));
+
+        }
+        if (providerName != null && !providerName.isEmpty()) {
+            predicates.add(cb.like(cb.lower(root.get("provider").get("name")), "%" + providerName.toLowerCase() + "%"));
+        }
+        if (appointmentDate != null) {
+            predicates.add(cb.equal(root.get("appointmentDate"), appointmentDate));
+        }
+
+        query.where(predicates.toArray(new Predicate[0]));
+
+        Path<?> sortField;
+        switch (sortBy.toLowerCase()) {
+            case "patient" -> sortField = root.get("patient").get("name");
+            case "provider" -> sortField = root.get("provider").get("name");
+            default -> sortField = root.get("appointmentDate"); // Default sorting by date
+        }
+
+        Order order = sortDirection.equalsIgnoreCase("desc") ? cb.desc(sortField) : cb.asc(sortField);
+        query.orderBy(order);
+
+        TypedQuery<Appointment> typedQuery = entityManager.createQuery(query);
+        typedQuery.setFirstResult(page * size);
+        typedQuery.setMaxResults(size);
+
+        List<Appointment> appointments = typedQuery.getResultList();
+        long totalRecords = appointments.size();
+
+        // Convert to DTOs
+        List<AppointmentResponseDTO> responseList = appointments.parallelStream()
+                .map(appointment -> {
+                    Patient patient = appointment.getPatient();
+                    Provider provider = appointment.getProvider();
+
+                    PatientResponseDTO patientDTO = new PatientResponseDTO(
+                            patient.getId(), patient.getName(), patient.getAge(),
+                            new ProviderResponseDTO(provider.getId(), provider.getName(), provider.getSpecialization())
+                    );
+
+                    ProviderResponseDTO providerDTO = new ProviderResponseDTO(
+                            provider.getId(), provider.getName(), provider.getSpecialization()
+                    );
+
+                    return new AppointmentResponseDTO(appointment.getId(), patientDTO, providerDTO, appointment.getAppointmentDate());
+                })
+                .toList();
+
+        return new PageImpl<>(responseList, PageRequest.of(page, size), totalRecords);
     }
 
     public AppointmentResponseDTO getAppointmentById(Long id) {

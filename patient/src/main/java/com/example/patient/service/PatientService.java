@@ -36,11 +36,17 @@ public class PatientService {
                 new ProviderResponseDTO(provider.getId(), provider.getName(), provider.getSpecialization()));
     }
 
-    public List<PatientResponseDTO> getAllPatients() {
-        return patientRepository.findAll().stream()
+      public List<PatientResponseDTO> getAllPatients() {
+        return patientRepository.findAll().parallelStream()
                 .map(patient -> new PatientResponseDTO(
-                        patient.getId(), patient.getName(), patient.getAge(),
-                        new ProviderResponseDTO(patient.getProvider().getId(), patient.getProvider().getName(), patient.getProvider().getSpecialization())
+                        patient.getId(),
+                        patient.getName(),
+                        patient.getAge(),
+                        new ProviderResponseDTO(
+                                patient.getProvider().getId(),
+                                patient.getProvider().getName(),
+                                patient.getProvider().getSpecialization()
+                        )
                 )).toList();
     }
 
