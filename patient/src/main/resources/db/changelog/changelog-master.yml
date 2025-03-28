@@ -1,0 +1,7 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changesets/create-providers.yml
+  - include:
+      file: db/changelog/changesets/create-patients.yml
+  - include:
+      file: db/changelog/changesets/create-appointments.yml
