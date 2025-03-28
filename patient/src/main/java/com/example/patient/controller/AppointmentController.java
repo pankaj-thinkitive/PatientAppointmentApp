@@ -19,10 +19,19 @@ public class AppointmentController {
     public ResponseEntity<AppointmentResponseDTO> createAppointment(@RequestBody AppointmentRequestDTO request) {
         return ResponseEntity.ok().body(appointmentService.createAppointment(request));
     }
-
     @GetMapping("/getAll")
-    public ResponseEntity<List<AppointmentResponseDTO>> getAllAppointments() {
-        return ResponseEntity.ok().body(appointmentService.getAllAppointments());
+    public ResponseEntity<Page<AppointmentResponseDTO>> getAppointments(
+            @RequestParam(required = false) String patientName,
+            @RequestParam(required = false) String providerName,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appointmentDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "date") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection) {
+
+        Page<AppointmentResponseDTO> response = appointmentService.getAppointments(
+                patientName, providerName, appointmentDate, page, size, sortBy, sortDirection);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
