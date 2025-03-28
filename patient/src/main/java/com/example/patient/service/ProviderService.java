@@ -28,9 +28,12 @@ public class ProviderService {
     }
 
     public List<ProviderResponseDTO> getAllProviders() {
-        return providerRepository.findAll().stream()
-                .map(provider -> new ProviderResponseDTO(provider.getId(), provider.getName(), provider.getSpecialization()))
-                .toList();
+        return providerRepository.findAll().parallelStream()
+                .map(provider -> new ProviderResponseDTO(
+                        provider.getId(),
+                        provider.getName(),
+                        provider.getSpecialization()
+                )).toList();
     }
 
     public ProviderResponseDTO getProviderById(Long id) {
