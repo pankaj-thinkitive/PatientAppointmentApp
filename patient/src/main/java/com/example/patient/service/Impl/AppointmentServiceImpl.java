@@ -56,19 +56,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         );
     }
 
-//    public List<AppointmentResponseDTO> getAllAppointments() {
-//        return appointmentRepository.findAll().stream()
-//                .map(appointment -> new AppointmentResponseDTO(
-//                        appointment.getId(),
-//                        new PatientResponseDTO(appointment.getPatient().getId(), appointment.getPatient().getName(),
-//                                appointment.getPatient().getAge(),
-//                                new ProviderResponseDTO(appointment.getProvider().getId(), appointment.getProvider().getName(),
-//                                        appointment.getProvider().getSpecialization())),
-//                        new ProviderResponseDTO(appointment.getProvider().getId(), appointment.getProvider().getName(),
-//                                appointment.getProvider().getSpecialization()),
-//                        appointment.getAppointmentDate()
-//                )).toList();
-//    }
 
     @Override
     public Page<AppointmentResponseDTO> getAllAppointments(
@@ -136,14 +123,6 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         return new PageImpl<>(responseList, PageRequest.of(page, size), totalRecords);
     }
-
-  /*  private long getTotalCount(List<Predicate> predicates) {
-        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
-        Root<Appointment> countRoot = countQuery.from(Appointment.class);
-        countQuery.select(cb.count(countRoot)).where(predicates.toArray(new Predicate[0]));
-        return entityManager.createQuery(countQuery).getSingleResult();
-    }*/
 
     @Override
     public AppointmentResponseDTO getAppointmentById(Long id) {
