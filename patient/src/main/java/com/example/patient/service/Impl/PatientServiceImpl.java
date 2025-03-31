@@ -2,21 +2,18 @@ package com.example.patient.service.Impl;
 
 import com.example.patient.dto.PatientRequestDTO;
 import com.example.patient.dto.PatientResponseDTO;
-import com.example.patient.dto.ProviderResponseDTO;
 import com.example.patient.exception.CustomDeletionException;
 import com.example.patient.exception.ResourceNotFoundException;
-import com.example.patient.model.Patient;
-import com.example.patient.model.Provider;
+import com.example.patient.entity.Patient;
+import com.example.patient.entity.Provider;
 import com.example.patient.repo.PatientRepository;
 import com.example.patient.repo.ProviderRepository;
 import com.example.patient.service.PatientService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -26,48 +23,28 @@ public class PatientServiceImpl implements PatientService {
     private final ProviderRepository providerRepository;
 
     @Override
-    public PatientResponseDTO createPatient(PatientRequestDTO request) {
+    public void createPatient(PatientRequestDTO request) {
         Provider provider = providerRepository.findById(request.providerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
-
-        Patient patient = patientRepository.save(
-                new Patient(null, request.name(), request.age(), provider, LocalDateTime.now())
-        );
-
-        return new PatientResponseDTO(patient.getId(), patient.getName(), patient.getAge(),
-                new ProviderResponseDTO(provider.getId(), provider.getName(), provider.getSpecialization()));
+        Patient patient=Patient.toEntity(request, provider);
+         patientRepository.save(patient);
     }
 
     @Override
-    public List<PatientResponseDTO> getAllPatients() {
-        return patientRepository.findAll().parallelStream()
-                .map(patient -> new PatientResponseDTO(
-                        patient.getId(),
-                        patient.getName(),
-                        patient.getAge(),
-                        new ProviderResponseDTO(
-                                patient.getProvider().getId(),
-                                patient.getProvider().getName(),
-                                patient.getProvider().getSpecialization()
-                        )
-                )).toList();
+    public Page<PatientResponseDTO> getAllPatients(Pageable pageable) {
+        return patientRepository.findAll(pageable)
+                .map(Patient::toDto);
     }
 
     @Override
     public PatientResponseDTO getPatientById(Long id) {
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
-
-        return new PatientResponseDTO(
-                patient.getId(), patient.getName(), patient.getAge(),
-                new ProviderResponseDTO(patient.getProvider().getId(), patient.getProvider().getName(),
-                        patient.getProvider().getSpecialization())
-        );
+        return Patient.toDto(patient);
     }
 
     @Override
-    @Transactional
-    public PatientResponseDTO updatePatient(Long id, PatientRequestDTO request) {
+    public void updatePatient(Long id, PatientRequestDTO request) {
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
 
@@ -77,11 +54,7 @@ public class PatientServiceImpl implements PatientService {
         patient.setName(request.name());
         patient.setAge(request.age());
         patient.setProvider(provider);
-
-        return new PatientResponseDTO(
-                patient.getId(), patient.getName(), patient.getAge(),
-                new ProviderResponseDTO(provider.getId(), provider.getName(), provider.getSpecialization())
-        );
+        patientRepository.save(patient);
     }
 
     @Override
@@ -96,4 +69,3 @@ public class PatientServiceImpl implements PatientService {
         }
     }
 }
-

@@ -2,14 +2,16 @@ package com.example.patient.service;
 
 import com.example.patient.dto.PatientRequestDTO;
 import com.example.patient.dto.PatientResponseDTO;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
 public interface PatientService {
 
-    public List<PatientResponseDTO> getAllPatients();
+    public Page<PatientResponseDTO> getAllPatients(Pageable pageable);
     public PatientResponseDTO getPatientById(Long id);
-    public PatientResponseDTO createPatient(PatientRequestDTO request);
+    public void createPatient(PatientRequestDTO request);
     public void deletePatient(Long id);
-    public PatientResponseDTO updatePatient(Long id, PatientRequestDTO request);
+    public void updatePatient(Long id, PatientRequestDTO request);
 }

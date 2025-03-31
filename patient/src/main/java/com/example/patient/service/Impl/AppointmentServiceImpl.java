@@ -2,30 +2,25 @@ package com.example.patient.service.Impl;
 
 import com.example.patient.dto.AppointmentRequestDTO;
 import com.example.patient.dto.AppointmentResponseDTO;
-import com.example.patient.dto.PatientResponseDTO;
-import com.example.patient.dto.ProviderResponseDTO;
 import com.example.patient.exception.ResourceNotFoundException;
-import com.example.patient.model.Appointment;
-import com.example.patient.model.Patient;
-import com.example.patient.model.Provider;
+import com.example.patient.entity.Appointment;
+import com.example.patient.entity.Patient;
+import com.example.patient.entity.Provider;
 import com.example.patient.repo.AppointmentRepository;
 import com.example.patient.repo.PatientRepository;
 import com.example.patient.repo.ProviderRepository;
 import com.example.patient.service.AppointmentService;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.*;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -37,132 +32,72 @@ public class AppointmentServiceImpl implements AppointmentService {
     public final EntityManager entityManager;
 
     @Override
-    public AppointmentResponseDTO createAppointment(AppointmentRequestDTO request) {
+    public void createAppointment(AppointmentRequestDTO request) {
         Patient patient = patientRepository.findById(request.patientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
         Provider provider = providerRepository.findById(request.providerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
 
-        Appointment appointment = appointmentRepository.save(
-                new Appointment(null, patient, provider, request.appointmentDate(), LocalDateTime.now())
-        );
+        Appointment appointment = Appointment.toEntity(request, patient, provider);
+       appointmentRepository.save(appointment);
 
-        return new AppointmentResponseDTO(
-                appointment.getId(),
-                new PatientResponseDTO(patient.getId(), patient.getName(), patient.getAge(),
-                        new ProviderResponseDTO(provider.getId(), provider.getName(), provider.getSpecialization())),
-                new ProviderResponseDTO(provider.getId(), provider.getName(), provider.getSpecialization()),
-                appointment.getAppointmentDate()
-        );
     }
-
 
     @Override
     public Page<AppointmentResponseDTO> getAllAppointments(
             String patientName, String providerName, LocalDate appointmentDate,
             int page, int size, String sortBy, String sortDirection) {
 
-        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-        CriteriaQuery<Appointment> query = cb.createQuery(Appointment.class);
-        Root<Appointment> root = query.from(Appointment.class);
-        root.fetch("patient", JoinType.LEFT);
-        root.fetch("provider", JoinType.LEFT);
+//        Sort sort = sortDirection.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        Map<String, String> sortFields = Map.of(
+                "patient", "patient.name",
+                "provider", "provider.name",
+                "appointmentDate", "appointmentDate"
+        );
 
-        query.distinct(true);
+        Sort sort = Sort.by(sortFields.getOrDefault(sortBy.toLowerCase(), "appointmentDate"));
+        sort = "desc".equalsIgnoreCase(sortDirection) ? sort.descending() : sort.ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
 
-        List<Predicate> predicates = new ArrayList<>();
+        Specification<Appointment> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
 
-        if (patientName != null && !patientName.isEmpty()) {
-            predicates.add(cb.like(cb.lower(root.get("patient").get("name")), "%" + patientName.toLowerCase() + "%"));
-
-        }
-        if (providerName != null && !providerName.isEmpty()) {
-            predicates.add(cb.like(cb.lower(root.get("provider").get("name")), "%" + providerName.toLowerCase() + "%"));
-        }
-        if (appointmentDate != null) {
-            predicates.add(cb.equal(root.get("appointmentDate"), appointmentDate));
-        }
-
-        query.where(predicates.toArray(new Predicate[0]));
-
-        Path<?> sortField;
-        switch (sortBy.toLowerCase()) {
-            case "patient" -> sortField = root.get("patient").get("name");
-            case "provider" -> sortField = root.get("provider").get("name");
-            default -> sortField = root.get("appointmentDate"); // Default sorting by date
-        }
-
-        Order order = sortDirection.equalsIgnoreCase("desc") ? cb.desc(sortField) : cb.asc(sortField);
-        query.orderBy(order);
-
-        TypedQuery<Appointment> typedQuery = entityManager.createQuery(query);
-        typedQuery.setFirstResult(page * size);
-        typedQuery.setMaxResults(size);
-
-        List<Appointment> appointments = typedQuery.getResultList();
-        long totalRecords = appointments.size();
-
-        // Convert to DTOs
-        List<AppointmentResponseDTO> responseList = appointments.parallelStream()
-                .map(appointment -> {
-                    Patient patient = appointment.getPatient();
-                    Provider provider = appointment.getProvider();
-
-                    PatientResponseDTO patientDTO = new PatientResponseDTO(
-                            patient.getId(), patient.getName(), patient.getAge(),
-                            new ProviderResponseDTO(provider.getId(), provider.getName(), provider.getSpecialization())
-                    );
-
-                    ProviderResponseDTO providerDTO = new ProviderResponseDTO(
-                            provider.getId(), provider.getName(), provider.getSpecialization()
-                    );
-
-                    return new AppointmentResponseDTO(appointment.getId(), patientDTO, providerDTO, appointment.getAppointmentDate());
-                })
-                .toList();
-
-        return new PageImpl<>(responseList, PageRequest.of(page, size), totalRecords);
+            if (patientName != null && !patientName.isEmpty()) {
+                predicates.add(cb.like(cb.lower(root.get("patient").get("name")), "%" + patientName.toLowerCase() + "%"));
+            }
+            if (providerName != null && !providerName.isEmpty()) {
+                predicates.add(cb.like(cb.lower(root.get("provider").get("name")), "%" + providerName.toLowerCase() + "%"));
+            }
+            if (appointmentDate != null) {
+                predicates.add(cb.equal(root.get("appointmentDate"), appointmentDate));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        Page<Appointment> appointments = appointmentRepository.findAll(spec, pageable);
+        return appointments.map(Appointment::toDto);
     }
 
     @Override
     public AppointmentResponseDTO getAppointmentById(Long id) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
-
-        return new AppointmentResponseDTO(
-                appointment.getId(),
-                new PatientResponseDTO(appointment.getPatient().getId(), appointment.getPatient().getName(),
-                        appointment.getPatient().getAge(),
-                        new ProviderResponseDTO(appointment.getProvider().getId(), appointment.getProvider().getName(),
-                                appointment.getProvider().getSpecialization())),
-                new ProviderResponseDTO(appointment.getProvider().getId(), appointment.getProvider().getName(),
-                        appointment.getProvider().getSpecialization()),
-                appointment.getAppointmentDate()
-        );
+        return Appointment.toDto(appointment);
     }
 
-    @Transactional
     @Override
-    public AppointmentResponseDTO updateAppointment(Long id, AppointmentRequestDTO request) {
-        Appointment appointment = appointmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+    public void updateAppointment(Long id, AppointmentRequestDTO request) {
+            Appointment appointment = appointmentRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
 
-        Patient patient = patientRepository.findById(request.patientId())
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
-        Provider provider = providerRepository.findById(request.providerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
+            Patient patient = patientRepository.findById(request.patientId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
+            Provider provider = providerRepository.findById(request.providerId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
 
-        appointment.setPatient(patient);
-        appointment.setProvider(provider);
-        appointment.setAppointmentDate(request.appointmentDate());
-
-        return new AppointmentResponseDTO(
-                appointment.getId(),
-                new PatientResponseDTO(patient.getId(), patient.getName(), patient.getAge(),
-                        new ProviderResponseDTO(provider.getId(), provider.getName(), provider.getSpecialization())),
-                new ProviderResponseDTO(provider.getId(), provider.getName(), provider.getSpecialization()),
-                appointment.getAppointmentDate()
-        );
+            appointment.setPatient(patient);
+            appointment.setProvider(provider);
+            appointment.setAppointmentDate(request.appointmentDate());
+            appointmentRepository.save(appointment);
     }
 
     @Override
@@ -171,6 +106,16 @@ public class AppointmentServiceImpl implements AppointmentService {
             throw new ResourceNotFoundException("Appointment not found");
         }
         appointmentRepository.deleteById(id);
+    }
+
+    public Page<AppointmentResponseDTO> getAppointmentsByProvider(Long providerId, Pageable pageable) {
+        Page<Appointment> appointments = appointmentRepository.findByProviderId(providerId, pageable);
+        return appointments.map(Appointment::toDto);
+    }
+
+    public Page<AppointmentResponseDTO> getAppointmentsByPatient(Long patientId,Pageable pageable) {
+        Page<Appointment> appointments = appointmentRepository.findByPatientId(patientId,pageable);
+        return appointments.map(Appointment::toDto);
     }
 }
 
