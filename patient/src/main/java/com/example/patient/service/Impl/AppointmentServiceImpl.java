@@ -71,7 +71,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 //    }
 
     @Override
-    public Page<AppointmentResponseDTO> getAppointments(
+    public Page<AppointmentResponseDTO> getAllAppointments(
             String patientName, String providerName, LocalDate appointmentDate,
             int page, int size, String sortBy, String sortDirection) {
 

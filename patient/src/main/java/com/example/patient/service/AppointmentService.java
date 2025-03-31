@@ -12,7 +12,7 @@ public interface AppointmentService {
     public AppointmentResponseDTO updateAppointment(Long id, AppointmentRequestDTO request);
     public void deleteAppointment(Long id);
     public AppointmentResponseDTO createAppointment(AppointmentRequestDTO request);
-    public Page<AppointmentResponseDTO> getAppointments(
+    public Page<AppointmentResponseDTO> getAllAppointments(
             String patientName, String providerName, LocalDate appointmentDate,
             int page, int size, String sortBy, String sortDirection);
 }
