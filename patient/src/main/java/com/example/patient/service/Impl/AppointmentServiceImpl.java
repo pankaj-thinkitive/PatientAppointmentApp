@@ -10,7 +10,6 @@ import com.example.patient.repo.AppointmentRepository;
 import com.example.patient.repo.PatientRepository;
 import com.example.patient.repo.ProviderRepository;
 import com.example.patient.service.AppointmentService;
-import jakarta.persistence.EntityManager;
 import jakarta.persistence.criteria.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -29,7 +28,6 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final PatientRepository patientRepository;
     private final ProviderRepository providerRepository;
-    public final EntityManager entityManager;
 
     @Override
     public void createAppointment(AppointmentRequestDTO request) {
@@ -50,6 +48,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
 //        Sort sort = sortDirection.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         Map<String, String> sortFields = Map.of(
+                "date", "appointmentDate",
                 "patient", "patient.name",
                 "provider", "provider.name",
                 "appointmentDate", "appointmentDate"
@@ -69,7 +68,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 predicates.add(cb.like(cb.lower(root.get("provider").get("name")), "%" + providerName.toLowerCase() + "%"));
             }
             if (appointmentDate != null) {
-                predicates.add(cb.equal(root.get("appointmentDate"), appointmentDate));
+                predicates.add(cb.equal(cb.function("DATE", LocalDate.class, root.get("appointmentDate")), appointmentDate));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
@@ -108,11 +107,13 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointmentRepository.deleteById(id);
     }
 
+    @Override
     public Page<AppointmentResponseDTO> getAppointmentsByProvider(Long providerId, Pageable pageable) {
         Page<Appointment> appointments = appointmentRepository.findByProviderId(providerId, pageable);
         return appointments.map(Appointment::toDto);
     }
 
+    @Override
     public Page<AppointmentResponseDTO> getAppointmentsByPatient(Long patientId,Pageable pageable) {
         Page<Appointment> appointments = appointmentRepository.findByPatientId(patientId,pageable);
         return appointments.map(Appointment::toDto);

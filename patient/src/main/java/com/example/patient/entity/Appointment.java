@@ -46,7 +46,6 @@ public class Appointment {
         return new AppointmentResponseDTO(
                 appointment.getId(),
                 Patient.toDto(appointment.getPatient()),
-                Provider.toDto(appointment.getProvider()),
                 appointment.getAppointmentDate()
         );
     }

@@ -33,7 +33,6 @@ public class ProviderController {
         return ResponseEntity.ok(providerService.getAllProviders(pageable));
     }
 
-
     @GetMapping("/{id}")
     public ResponseEntity<ProviderResponseDTO> getProviderById(@PathVariable("id") Long id) {
         return ResponseEntity.ok().body(providerService.getProviderById(id));

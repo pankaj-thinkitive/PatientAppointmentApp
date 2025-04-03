@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +21,7 @@ public class PatientController {
     @PostMapping("/create")
     public ResponseEntity<String> createPatient(@RequestBody PatientRequestDTO request) {
         patientService.createPatient(request);
-        return ResponseEntity.ok().body("Patient created successfully");
+        return ResponseEntity.status(HttpStatus.CREATED).body("Patient created successfully");
     }
 
     @GetMapping("/all")
